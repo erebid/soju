@@ -3,7 +3,6 @@ package soju
 import (
 	"fmt"
 	"net"
-	"time"
 
 	"gopkg.in/irc.v3"
 )
@@ -46,7 +45,8 @@ func newConn(srv *Server, netConn net.Conn, logger Logger) *conn {
 			if c.srv.Debug {
 				c.logger.Printf("sent: %v", msg)
 			}
-			c.net.SetWriteDeadline(time.Now().Add(writeTimeout))
+			// TODO: https://github.com/nhooyr/websocket/issues/228
+			//c.net.SetWriteDeadline(time.Now().Add(writeTimeout))
 			if err := c.irc.WriteMessage(msg); err != nil {
 				c.logger.Printf("failed to write message: %v", err)
 				break

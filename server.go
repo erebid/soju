@@ -1,13 +1,17 @@
 package soju
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gopkg.in/irc.v3"
+	"nhooyr.io/websocket"
 )
 
 // TODO: make configurable
@@ -90,27 +94,41 @@ func (s *Server) getUser(name string) *user {
 	return u
 }
 
+var lastDownstreamID uint64 = 0
+
+func (s *Server) Handle(netConn net.Conn) {
+	id := atomic.AddUint64(&lastDownstreamID, 1)
+	dc := newDownstreamConn(s, netConn, id)
+	if err := dc.runUntilRegistered(); err != nil {
+		dc.logger.Print(err)
+	} else {
+		dc.user.events <- eventDownstreamConnected{dc}
+		if err := dc.readMessages(dc.user.events); err != nil {
+			dc.logger.Print(err)
+		}
+		dc.user.events <- eventDownstreamDisconnected{dc}
+	}
+	dc.Close()
+}
+
 func (s *Server) Serve(ln net.Listener) error {
-	var nextDownstreamID uint64 = 1
 	for {
-		netConn, err := ln.Accept()
+		conn, err := ln.Accept()
 		if err != nil {
 			return fmt.Errorf("failed to accept connection: %v", err)
 		}
 
-		dc := newDownstreamConn(s, netConn, nextDownstreamID)
-		nextDownstreamID++
-		go func() {
-			if err := dc.runUntilRegistered(); err != nil {
-				dc.logger.Print(err)
-			} else {
-				dc.user.events <- eventDownstreamConnected{dc}
-				if err := dc.readMessages(dc.user.events); err != nil {
-					dc.logger.Print(err)
-				}
-				dc.user.events <- eventDownstreamDisconnected{dc}
-			}
-			dc.Close()
-		}()
+		go s.Handle(conn)
 	}
+}
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	conn, err := websocket.Accept(w, req, &websocket.AcceptOptions{
+		OriginPatterns: []string{"*"},
+	})
+	if err != nil {
+		s.Logger.Printf("failed to serve HTTP connection: %v", err)
+		return
+	}
+	s.Handle(websocket.NetConn(context.Background(), conn, websocket.MessageText))
 }

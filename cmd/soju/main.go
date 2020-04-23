@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"net"
+	"net/http"
 
 	"git.sr.ht/~emersion/soju"
 	"git.sr.ht/~emersion/soju/config"
@@ -69,6 +70,13 @@ func main() {
 		if err := srv.Run(); err != nil {
 			log.Fatal(err)
 		}
+	}()
+	go func() {
+		httpSrv := http.Server{
+			Addr: ":8080",
+			Handler: srv,
+		}
+		httpSrv.ListenAndServe()
 	}()
 	log.Fatal(srv.Serve(ln))
 }
