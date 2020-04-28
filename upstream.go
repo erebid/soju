@@ -1332,6 +1332,10 @@ func (uc *upstreamConn) produce(target string, msg *irc.Message, origin *downstr
 
 	uc.appendHistory(target, msg)
 
+	if ch, ok := uc.network.channels[target]; ok && ch.Detached {
+		return
+	}
+
 	uc.forEachDownstream(func(dc *downstreamConn) {
 		if dc != origin || dc.caps["echo-message"] {
 			dc.SendMessage(dc.marshalMessage(msg, uc.network))

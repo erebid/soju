@@ -165,6 +165,25 @@ func (net *network) deleteChannel(name string) error {
 	return nil
 }
 
+// TODO: integrate into createUpdateChannel
+func (net *network) setDetached(name string, detached bool) error {
+	ch, ok := net.channels[name]
+	if !ok {
+		return fmt.Errorf("cannot detach %q: no such channel", name)
+	}
+	if ch.Detached == detached {
+		return nil
+	}
+
+	ch.Detached = detached
+	if err := net.createUpdateChannel(ch); err != nil {
+		return err
+	}
+
+	// TODO: save/send history
+	return nil
+}
+
 type user struct {
 	User
 	srv *Server
