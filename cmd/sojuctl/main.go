@@ -14,9 +14,9 @@ import (
 
 const usage = `usage: sojuctl [-config path] <action> [options...]
 
-  create-user <username>	Create a new user
-  change-password <username> 	Change password for a user
-  help				Show this help message
+  create-user <username> [hash]		Create a new user
+  change-password <username> [hash]	Change password for a user
+  help					Show this help message
 `
 
 func init() {
@@ -49,21 +49,23 @@ func main() {
 	switch cmd := flag.Arg(0); cmd {
 	case "create-user":
 		username := flag.Arg(1)
+		hashed := []byte(flag.Arg(2))
 		if username == "" {
 			flag.Usage()
 			os.Exit(1)
 		}
+		if len(hashed) == 0 {
+			fmt.Printf("Password: ")
+			password, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+			if err != nil {
+				log.Fatalf("failed to read password: %v", err)
+			}
+			fmt.Printf("\n")
 
-		fmt.Printf("Password: ")
-		password, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-		if err != nil {
-			log.Fatalf("failed to read password: %v", err)
-		}
-		fmt.Printf("\n")
-
-		hashed, err := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
-		if err != nil {
-			log.Fatalf("failed to hash password: %v", err)
+			hashed, err = bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
+			if err != nil {
+				log.Fatalf("failed to hash password: %v", err)
+			}
 		}
 
 		user := soju.User{
@@ -75,21 +77,24 @@ func main() {
 		}
 	case "change-password":
 		username := flag.Arg(1)
+		hashed := []byte(flag.Arg(2))
 		if username == "" {
 			flag.Usage()
 			os.Exit(1)
 		}
 
-		fmt.Printf("New password: ")
-		password, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-		if err != nil {
-			log.Fatalf("failed to read new password: %v", err)
-		}
-		fmt.Printf("\n")
+		if len(hashed) == 0 {
+			fmt.Printf("New password: ")
+			password, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+			if err != nil {
+				log.Fatalf("failed to read new password: %v", err)
+			}
+			fmt.Printf("\n")
 
-		hashed, err := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
-		if err != nil {
-			log.Fatalf("failed to hash password: %v", err)
+			hashed, err = bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
+			if err != nil {
+				log.Fatalf("failed to hash password: %v", err)
+			}
 		}
 
 		user := soju.User{
